@@ -752,6 +752,12 @@ def compute_R(daily_change, tau=4):
     R2 = R.shift(-tau)  # this is not the RKI method, but seems more appropriate:
                         # we centre the reported value between the 2-intervals of length tau
                         # that have been used to compute it.
+
+    # Can we create an R-value of 1.0 for small numbers (approaching 0)
+    # of new cases/deaths? At least if we have no new cases, then
+    # R=1 seems a reasonable outcome.
+    R2[(mean4d.shift(tau) == 0.0) & (mean4d == 0)] = 1.0
+
     return R2
 
 
