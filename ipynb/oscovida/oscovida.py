@@ -1,5 +1,5 @@
 """Code used for notebooks and data exploration on
-https://github.com/fangohr/coronavirus-2020"""
+https://github.com/oscovida/oscovida"""
 
 
 import datetime
@@ -11,14 +11,17 @@ import joblib
 import numpy as np
 import pandas as pd
 import IPython.display
-
+from typing import Tuple
 # choose font - can be deactivated
 from matplotlib import rcParams
+from oscovida.data_sources import base_url, hungary_data, jhu_population_url, rki_data, rki_population_url
+
 rcParams['font.family'] = 'sans-serif'
 rcParams['font.sans-serif'] = ['Inconsolata']
 # need many figures for index.ipynb and germany.ipynb
 rcParams['figure.max_open_warning'] = 50
 from matplotlib.ticker import ScalarFormatter, FuncFormatter
+from matplotlib.dates import DateFormatter, MONDAY, WeekdayLocator
 from bisect import bisect
 
 import matplotlib.pyplot as plt
@@ -29,8 +32,6 @@ from pandas.plotting import register_matplotlib_converters
 register_matplotlib_converters()
 
 LW = 3   # line width
-
-base_url = "https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/"
 
 # set up joblib memory to avoid re-fetching files
 joblib_location = "./cachedir"
@@ -48,7 +49,6 @@ def display_binder_link(notebook_name):
     # print(f"url is {url}")
     IPython.display.display(
         IPython.display.Markdown(f'[Execute this notebook with Binder]({url})'))
-
 
 
 def clear_cache():
@@ -90,6 +90,7 @@ def fetch_deaths():
     fetch_deaths_last_execution()
     return df
 
+
 @joblib_memory.cache
 def fetch_deaths_US():
     """Download deaths for US states from Johns Hopkins data repository"""
@@ -109,6 +110,7 @@ def fetch_cases():
     fetch_cases_last_execution()
     return df
 
+
 @joblib_memory.cache
 def fetch_cases_US():
     """Download cases for US status from Johns Hopkins data repository"""
@@ -119,7 +121,7 @@ def fetch_cases_US():
     return df
 
 
-def get_country_data_johns_hopkins(country):
+def get_country_data_johns_hopkins(country: str) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """Given a country name, return deaths and cases as a tuple of
     pandas time series. Works for all (?) countries in the world, or at least
     those in the Johns Hopkins data set. All rows should contain a datetime
@@ -181,7 +183,6 @@ def get_US_region_list():
     return list(deaths.groupby("Province_State").sum().index)
 
 
-
 def get_region_US(state, county=None, debug=False):
     """Given a US state name and county, return deaths and cases as a tuple of pandas time
     series. (Johns Hopkins data set)
@@ -237,7 +238,6 @@ def get_region_US(state, county=None, debug=False):
     return c, d
 
 
-
 def compose_dataframe_summary(cases, deaths):
     """Used in per-country template to show data table.
     Could be extended.
@@ -279,7 +279,7 @@ def fetch_data_germany(include_last_day=True):
     """
 
     # outdated: datasource = "https://opendata.arcgis.com/datasets/dd4580c810204019a7b8eb3e0b329dd6_0.csv"
-    datasource = "https://www.arcgis.com/sharing/rest/content/items/f10774f1c63e40168479a1feb6c7ca74/data"
+    datasource = rki_data
     t0 = time.time()
     print(f"Please be patient - downloading data from {datasource} ...")
     germany = pd.read_csv(datasource)
@@ -429,6 +429,58 @@ def germany_get_region(state=None, landkreis=None, pad2yesterday=False):
     raise NotImplemented("Should never get to this point.")
 
 
+@joblib_memory.cache
+def fetch_csv_data_from_url(source):
+    """Given a URL, fetch the csv using pandas. Put into separate function (from germany_get_population)
+    to avoid repeated download of file (for better performance)."""
+    data = pd.read_csv(source)
+    return data
+
+
+@joblib_memory.cache
+def germany_get_population(state: str = None, landkreis: str = None) -> int:
+    """The function's behavior duplicates the one for `germany_get_region()` one."""
+    source = rki_population_url
+    population = fetch_csv_data_from_url(source)
+
+    if state is None and landkreis is None:
+        return sum(population.EWZ)
+
+    elif state and landkreis:
+        raise NotImplementedError("Try to use 'None' for the state.")
+        """We need to check if this is important."""
+
+    if state:
+        assert state in population['BL'].values, \
+            f"{state} not in available German states. These are {' ,'.join(sorted(population['BL'].drop_duplicates()))}"
+
+        return population.EWZ[population['BL'] == state].sum()
+
+    if landkreis:
+        assert landkreis in population['county'].values, \
+            f"{state} not in available German states. These are {sorted(population['county'].drop_duplicates())}"
+
+        return population.EWZ[population['county'] == landkreis].sum()
+
+    raise NotImplemented("Should never get to this point.")@joblib_memory.cache
+
+
+@joblib_memory.cache
+def get_population(country: str = None, region: str = None) -> int:
+    """Only support country for now"""
+    source = jhu_population_url
+    population = fetch_csv_data_from_url(source)
+    key = 'Combined_Key'
+    if country:
+        assert country in population[key].values, \
+            f"{country} not in available German states. These are {sorted(population[key].drop_duplicates())}"
+
+        if country == "Germany":
+            return germany_get_population(state=region)
+        return int(population.Population[population[key] == country])
+
+    raise NotImplemented("Should never get to this point.")
+
 
 @joblib_memory.cache
 def fetch_data_hungary_last_execution():
@@ -442,7 +494,7 @@ def fetch_data_hungary():
 
     Dataset does not contain the number of deaths in each county/capital city.
     """
-    datasource = r'https://raw.githubusercontent.com/sanbrock/covid19/master/datafile.csv'
+    datasource = hungary_data
 
     t0 = time.time()
     print(f"Please be patient - downloading data from {datasource} ...")
@@ -486,7 +538,6 @@ def get_region_hungary(county):
     cases.name = region_label + " cases"
 
     return cases, None, region_label
-
 
 
 def plot_time_step(ax, series, style="-", labels=None, logscale=True):
@@ -565,7 +616,6 @@ def plot_daily_change(ax, series, color, labels=None):
 
     See plot_time_step for documentation on other parameters.
     """
-
     bar_alpha = 0.2
     if labels is None:
         label = ""
@@ -602,7 +652,6 @@ def plot_daily_change(ax, series, color, labels=None):
         ax.set_ylim([max(-500, ymin), min(10000, ymax)])
 
     return ax
-
 
 
 def compute_doubling_time(series, minchange=0.5, labels=None, debug=False):
@@ -722,7 +771,7 @@ def plot_doubling_time(ax, series, color, minchange=0.5, labels=None, debug=Fals
     ## Adding a little bit of additional smoothing just for visual effects
     dtime_smooth2 = dtime_smooth.rolling(3, win_type='gaussian', min_periods=1, center=True).mean(std=1)
 
-    ax.set_ylim(0, ymax)
+    ax.set_ylim(0, max(ymax, ax.get_ylim()[1]))     # since we combine two plots, let's take another one into account
     ax.plot(dtime_smooth2.index, dtime_smooth2.values, "-", color=color, alpha=1.0,
             label=dtime_smooth_label,
             linewidth=LW)
@@ -764,7 +813,6 @@ def compute_growth_factor(series):
     smoothed = f_smoothed, smooth_label
 
     return growth, smoothed
-
 
 
 #def plot_growth_factor(ax, series, color):
@@ -924,11 +972,8 @@ def plot_reproduction_number(ax, series, color_g='C1', color_R='C4',
     return ax
 
 
-
-
-
-
-def get_country_data(country, region=None, subregion=None, verbose=False, pad_RKI_data_to_yesterday=True):
+def get_country_data(country: str, region: str = None, subregion: str = None, verbose: bool = False,
+                     pad_RKI_data_to_yesterday: bool = True) -> Tuple[pd.Series, pd.Series, str]:
     """Given the name of a country, get the Johns Hopkins data for cases and deaths,
     and return them as a tuple of pandas.Series objects and a string describing the region:
     (cases, deaths, region_label)
@@ -1029,7 +1074,7 @@ def day0atleast(v0, series):
 
 
 def align_sets_at(v0, df):
-    """Accepts data frame, and aligns so that all enttries close to v0 are on the same row.
+    """Accepts data frame, and aligns so that all entries close to v0 are on the same row.
 
     Returns new dataframe with integer index (representing days after v0).
     """
@@ -1133,7 +1178,7 @@ def set_y_axis_limit(data, current_lim):
     :return: new y-axis lower limit
     """
     data_0 = data[data.index >= 0]  # from "day 0" only
-    limits = [0.1, 1, 10, 100]
+    limits = [0.01, 0.1, 1, 10, 100]
     # if we have values within the `limits`, we set the lower `y_limit` on the graph to the value on the left of bisect
     # example: if the minimum value is 3, then y_limit = 1
     index = bisect(limits, data_0.min().min())
@@ -1144,13 +1189,19 @@ def set_y_axis_limit(data, current_lim):
     else:
         return current_lim
 
+
 def make_compare_plot(main_country, compare_with=["Germany", "Australia", "Poland", "Korea, South",
                                                   "Belarus", "Switzerland", "US"],
-                     v0c=10, v0d=3):
+                     v0c=10, v0d=3, normalise=False):
     rolling = 7
     df_c, df_d = get_compare_data([main_country] + compare_with, rolling=rolling)
     res_c = align_sets_at(v0c, df_c)
     res_d = align_sets_at(v0d, df_d)
+
+    if normalise:
+        for country in res_c.keys():
+            res_c[country] *= 100000 / get_population(country)
+            res_d[country] *= 100000 / get_population(country)
 
     # We get NaNs for some lines. This seems to originate in the original data set not having a value recorded
     # for all days.
@@ -1163,20 +1214,21 @@ def make_compare_plot(main_country, compare_with=["Germany", "Australia", "Polan
 
     fig, axes = plt.subplots(2, 1, figsize=(10, 6))
     ax=axes[0]
+    norm_str = '\nper 100K people'
     plot_logdiff_time(ax, res_c, f"days since {v0c} cases",
-                      "daily new cases\n(rolling 7-day mean)",
+                      f"daily new cases{norm_str if normalise else ''}\n(rolling 7-day mean)",
                       v0=v0c, highlight={main_country:"C1"})
     ax = axes[1]
     plot_logdiff_time(ax, res_d, f"days since {v0d} deaths",
-                      "daily new deaths\n(rolling 7-day mean)",
+                      f"daily new deaths{norm_str if normalise else ''}\n(rolling 7-day mean)",
                       v0=v0d, highlight={main_country:"C0"})
 
-    fig.tight_layout(pad=1)
+    if not normalise:
+        fig.tight_layout(pad=1)
     title = f"Daily cases (top) and deaths (below) for {main_country}"
     axes[0].set_title(title)
 
     return axes, res_c, res_d
-
 
 
 ###################### Compare plots for Germany
@@ -1191,9 +1243,6 @@ def label_from_region_subregion(region_subregion):
     else:
         label = f"{region}"
     return label
-
-
-
 
 
 def unpack_region_subregion(region_subregion):
@@ -1303,9 +1352,8 @@ def make_compare_plot_germany(region_subregion,
     res_c = res_c.interpolate(method='linear', limit=7)
     res_d = res_d.interpolate(method='linear', limit=7)
 
-
     fig, axes = plt.subplots(2, 1, figsize=(10, 6))
-    ax=axes[0]
+    ax = axes[0]
     plot_logdiff_time(ax, res_c, f"days since {v0c} cases",
                       "daily new cases\n(rolling 7-day mean)",
                       v0=v0c, highlight={res_c.columns[0]:"C1"}, labeloffset=0.5)
@@ -1384,22 +1432,23 @@ def plot_no_data_available(ax, mimic_subplot, text):
     ax.set_xticklabels([])
 
 
-def overview(country, region=None, subregion=None, savefig=False):
+def overview(country: str, region: str = None, subregion: str = None,
+             savefig: bool = False, weeks: int = 0) -> Tuple[plt.axes, pd.Series, pd.Series]:
     c, d, region_label = get_country_data(country, region=region, subregion=subregion)
-    print(c.name)
     fig, axes = plt.subplots(6, 1, figsize=(10, 15), sharex=False)
-
+    c = c[- weeks * 7:]
     plot_time_step(ax=axes[0], series=c, style="-C1", labels=(region_label, "cases"))
     plot_daily_change(ax=axes[1], series=c, color="C1", labels=(region_label, "cases"))
     # data cleaning
     if country == "China":
         axes[1].set_ylim(0, 5000)
-    elif country == "Spain":   # https://github.com/fangohr/coronavirus-2020/issues/44
+    elif country == "Spain":   # https://github.com/oscovida/oscovida/issues/44
         axes[1].set_ylim(bottom=0)
     plot_reproduction_number(axes[3], series=c, color_g="C1", color_R="C5", labels=(region_label, "cases"))
     plot_doubling_time(axes[5], series=c, color="C1", labels=(region_label, "cases"))
 
     if d is not None:
+        d = d[- weeks * 7:]
         plot_time_step(ax=axes[0], series=d, style="-C0", labels=(region_label, "deaths"))
         plot_daily_change(ax=axes[2], series=d, color="C0", labels=(region_label, "deaths"))
         plot_reproduction_number(axes[4], series=d, color_g="C0", color_R="C4", labels=(region_label, "deaths"))
@@ -1420,8 +1469,11 @@ def overview(country, region=None, subregion=None, savefig=False):
     for i in range(0, axes.shape[0]):
         axes[i].tick_params(left=True, right=True, labelleft=True, labelright=True)
         axes[i].yaxis.set_ticks_position('both')
-
-    title = f"Overview {country}, last data point from {c.index[-1].date().isoformat()}"
+        if weeks > 0:
+            axes[i].get_xaxis().set_major_locator(WeekdayLocator(byweekday=MONDAY))     # put ticks every Monday
+            axes[i].get_xaxis().set_major_formatter(DateFormatter('%d %b'))             # date format: `15 Jun`
+    week_str = f", last {weeks} weeks" if weeks else ''
+    title = f"Overview {country}{week_str}, last data point from {c.index[-1].date().isoformat()}"
     axes[0].set_title(title)
 
     # tight_layout gives warnings, for example for Heinsberg
@@ -1430,29 +1482,38 @@ def overview(country, region=None, subregion=None, savefig=False):
     filename = os.path.join("figures", region_label.replace(" ", "-").replace(",", "-") + '.svg')
     if savefig:
         fig.savefig(filename)
+    return axes, c, d
 
-    if not subregion and not region: # i.e. not a region of Germany
-        axes_compare, res_c, res_d = make_compare_plot(country)
-        return_axes = np.concatenate([axes, axes_compare])
 
-    elif country=="Germany":   # Germany specific plots
+def compare_plot(country: str, region: str = None, subregion: str = None,
+                 savefig: bool = False, normalise: bool = False) -> Tuple[plt.axes, pd.Series, pd.Series]:
+    """ Create a pair of plots which show comparison of the region with other most suffering countries
+    """
+    c, d, region_label = get_country_data(country, region=region, subregion=subregion)
+    if normalise:
+        assert subregion is None, f"Normalization does not support subregions"
+        population = get_population(country=country, region=region)
+        c *= 100000 / population
+        d *= 100000 / population
+
+    if not subregion and not region:    # i.e. not a region of Germany
+        axes_compare, res_c, res_d = make_compare_plot(country, normalise=normalise)
+
+    elif country == "Germany":   # Germany specific plots
         # On 11 April, Mecklenburg Vorpommern data was missing from data set.
         # We thus compare only against those Laender, that are in the data set:
         # germany = fetch_data_germany()
         # laender = list(germany['Bundesland'].drop_duplicates().sort_values())
         axes_compare, res_c, red_d = make_compare_plot_germany((region, subregion))
-        return_axes = np.concatenate([axes, axes_compare])
-    elif country=="US" and region is not None:
+    elif country == "US" and region is not None:
         # skip comparison plot for the US states at the moment
-        return_axes = axes
-        return return_axes, c, d
+        return None, c, d
 
     elif country == 'Hungary':
         # choosing random counties. not sure if this make sense or not because not every county has enough data.
         with_local = choose_random_counties(exclude_region=region, size=18)
         axes_compare, res_c, red_d = make_compare_plot_hungary(region, compare_with_local=with_local)
-        return_axes = np.concatenate([axes, axes_compare])
-        return return_axes, c, d
+        return axes_compare, c, d
     else:
         raise NotImplementedError
 
@@ -1462,7 +1523,7 @@ def overview(country, region=None, subregion=None, savefig=False):
         filename = os.path.join("figures", region_label.replace(" ", "-").replace(",", "-") + '2.svg')
         fig2.savefig(filename)
 
-    return return_axes, c, d
+    return axes_compare, c, d
 
 
 def get_cases_last_week(cases):
