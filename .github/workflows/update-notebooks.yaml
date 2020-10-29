@@ -28,11 +28,11 @@ jobs:
         cp -r .oscovida.github.io/ipynb/* ipynb/
         rm -rf ipynb/oscovida
 
-      - name: Commit changes
-        run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          git add ipynb
-          git commit -m "Auto sync notebooks on $(date)"
+    - name: Commit changes
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add ipynb
+        git commit -m "Auto sync notebooks on $(date)"
 
-          git push
+        git push
