@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  test:
+  update-notebooks:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout binder repo
@@ -18,7 +18,7 @@ jobs:
           --depth 1 \
           --filter=blob:none \
           --no-checkout \
-          git@github.com:oscovida/oscovida.github.io.git \
+          https://github.com/oscovida/oscovida.github.io.git \
           .oscovida.github.io
         cd .oscovida.github.io
         git sparse-checkout set ipynb
@@ -34,7 +34,7 @@ jobs:
           --depth 1 \
           --filter=blob:none \
           --no-checkout \
-          git@github.com:oscovida/oscovida.git \
+          https://github.com/oscovida/oscovida.git \
           .oscovida
         cd .oscovida
         git sparse-checkout set tools/pelican/content/ipynb
@@ -51,4 +51,8 @@ jobs:
         git add ipynb
         git commit -m "Auto sync notebooks on $(date)"
 
-        git push
+    - name: Push changes
+      uses: ad-m/github-push-action@b007e7b818e33b04afd056e4c4b57ba917145d7a
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        branch: ${{ github.ref }}
