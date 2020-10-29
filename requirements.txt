@@ -9,3 +9,4 @@ seaborn
 voila
 tabulate
 ipyparams
+oscovida
