@@ -10,4 +10,3 @@ voila
 tabulate
 ipyparams
 oscovida
-
