@@ -28,6 +28,22 @@ jobs:
         cp -r .oscovida.github.io/ipynb/* ipynb/
         rm -rf ipynb/oscovida
 
+    - name: Pull in latest notebooks from oscovida pelican content
+      run: |
+        git clone \
+          --depth 1 \
+          --filter=blob:none \
+          --no-checkout \
+          git@github.com:oscovida/oscovida.git \
+          .oscovida
+        cd .oscovida
+        git sparse-checkout set tools/pelican/content/ipynb
+        git checkout
+
+        cd ..
+        rm -f .oscovida/tools/pelican/content/ipynb/*.nbdata  # Not needed
+        cp -r .oscovida/tools/pelican/content/ipynb/* ipynb/
+
     - name: Commit changes
       run: |
         git config --local user.email "action@github.com"
