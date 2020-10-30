@@ -1,12 +1,1 @@
-joblib
-matplotlib
-numpy
-pandas
-pelican
-pytest
-scipy
-seaborn
-voila
-tabulate
-ipyparams
-oscovida
+oscovida==0.2.2
