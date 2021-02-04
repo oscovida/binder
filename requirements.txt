@@ -1,1 +1,1 @@
-oscovida==0.2.3
+oscovida==0.2.5
