@@ -46,10 +46,15 @@ jobs:
 
     - name: Commit changes
       run: |
-        git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action"
-        git add ipynb
-        git commit -m "Auto sync notebooks on $(date)"
+        if git diff-index --quiet HEAD --; then
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add ipynb
+          git commit -m "Auto sync notebooks on $(date)"
+        else
+          echo "No changes made"
+          exit 0
+        fi
 
     - name: Push changes
       uses: ad-m/github-push-action@b007e7b818e33b04afd056e4c4b57ba917145d7a
