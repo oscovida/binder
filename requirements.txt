@@ -1,1 +1,1 @@
-oscovida==0.2.5
+git+https://github.com/oscovida/oscovida@8dda76badacadc43ad5b75d3f6b93827ce8e29a3
