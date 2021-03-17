@@ -28,6 +28,12 @@ jobs:
         rm -f .oscovida/tools/pelican/content/ipynb/*.nbdata  # Not needed
         cp -r .oscovida/tools/pelican/content/ipynb/* ipynb/
 
+    - name: Extract latest oscovida master commit hash and add to requirements
+      run: |
+        cd .oscovida
+        export LATEST_MASTER_SHA=$(git rev-parse HEAD)
+        echo "git+https://github.com/oscovida/oscovida@$LATEST_MASTER_SHA" > ../requirements.txt
+
     - name: Pull in latest notebooks from oscovida.github.io
       run: |
         git clone \
@@ -50,6 +56,7 @@ jobs:
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
           git add ipynb
+          git add requirements.txt
           git commit -m "Auto sync notebooks on $(date)"
         else
           echo "No changes made"
