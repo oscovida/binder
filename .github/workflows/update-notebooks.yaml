@@ -31,8 +31,9 @@ jobs:
     - name: Extract latest oscovida master commit hash and add to requirements
       run: |
         cd .oscovida
-        export LATEST_MASTER_SHA=$(git rev-parse HEAD)
+        export LATEST_MASTER_SHA=$(git ls-remote origin master | cut -d$'\t' -f1)
         echo "git+https://github.com/oscovida/oscovida@$LATEST_MASTER_SHA" > ../requirements.txt
+        cat ../requirements.txt
 
     - name: Pull in latest notebooks from oscovida.github.io
       run: |
