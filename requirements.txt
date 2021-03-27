@@ -1,1 +1,1 @@
-git+https://github.com/oscovida/oscovida@27a4a8083ed037c17d0906464a0d87045592d83b
+git+https://github.com/oscovida/oscovida@e3c314814acacdde0724d7699a7d6e75fa6af94c
